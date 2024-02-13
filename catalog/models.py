@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse
+from django.core.validators import MinValueValidator, MaxValueValidator
 import uuid # Required for unique book instances
 
 class Genre(models.Model):
@@ -18,16 +19,43 @@ class Genre(models.Model):
       """Returns the url to access a particular genre instance."""
       return reverse('genre-detail', args=[str(self.id)])
 
+class Language(models.Model):
+  name = models.CharField(max_length=200, unique=True, help_text="Enter the book's natural language (e.g. English, French, Japanese, etc.)")
+
+  def get_absolute_url(self):
+    return reverse('language-detail', args=[str(self.id)])
+
+  def __str__(self):
+    return self.name
+
 class Book(models.Model):
   """A model representing a book (but not a specific copy of a book)."""
   # Fields
   title = models.CharField(max_length=200)
   author = models.ForeignKey('Author', on_delete=models.RESTRICT, null=True)
   summary = models.TextField(max_length=1000, help_text="Enter a brief description of the book")
+  goodreads_rating = models.DecimalField(
+    max_digits=3,
+    decimal_places=2,
+    blank=True,
+    null=True,
+    validators=[MinValueValidator(0), MaxValueValidator(5)])
+  date_published = models.DateField(blank=True, null=True)
   isbn = models.CharField('ISBN', max_length=13, unique=True, help_text='13 Character <a href="https://www.isbn-international.org/content/what-isbn">ISBN number</a>')
   genre = models.ManyToManyField(Genre, help_text="Select a genre for this book")
+  language = models.ForeignKey('Language', on_delete=models.SET_NULL, null=True)
+
+  class Meta:
+    ordering = ['title', 'author']
 
   # Methods
+  def display_genre(self):
+    """Create a string for the Genre. This is required to display genre in Admin."""
+    return ', '.join(genre.name for genre in self.genre.all()[:3])
+
+  display_genre.short_description = 'Genre'
+
+
   def __str__(self):
     """String for representing the Model object."""
     return self.title
@@ -73,12 +101,3 @@ class Author(models.Model):
   def __str__(self):
     """String fr representing the Model object."""
     return f'{self.last_name}, {self.first_name}'
-
-class Language(models.Model):
-  name: models.CharField(max_length=200, unique=True, help_text="Enter the book's natural language (e.g. English, French, Japanese, etc.)")
-
-  def get_absolute_url(self):
-    return reverse('language-detail', args=[str(self.id)])
-
-  def __str__(self):
-    return self.name
